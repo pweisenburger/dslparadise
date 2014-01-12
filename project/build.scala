@@ -50,7 +50,7 @@ object build extends Build {
     base = file("sandbox")
   ) settings (
     sharedSettings ++ usePluginSettings: _*
-  )
+  ) dependsOn plugin
 
   lazy val tests = Project(
     id   = "tests",
