@@ -18,14 +18,14 @@ trait Typers {
       val Impo = typeOf[org.dslparadise.annotations.Import]
       val desugared = (args zip formals) map {
         case (tree, formal @ TypeRef(_, _, List(AnnotatedType(List(AnnotationInfo(Impl, _, _)), left, _), right))) ⇒
-          val tpe = typed(tree.duplicate).tpe
-          if (!(tpe <:< formal) || tpe.isError) {
-            val fixed = q"{ implicit u: $left ⇒ $tree }"
-            val fixedTpe = typed(fixed).tpe
-            println(tree, fixed, fixedTpe)
-            fixed
-          } else {
-            tree
+          silent(_.typed(tree.duplicate)) match {
+            case SilentResultValue(result) =>
+              result
+            case SilentTypeError(_) =>
+              val fixed = q"{ implicit u: $left ⇒ $tree }"
+              val fixedTpe = typed(fixed).tpe
+              println(tree, fixed, fixedTpe)
+              fixed
           }
         case (tree, tp) ⇒ tree
       }
