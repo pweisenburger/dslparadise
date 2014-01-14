@@ -25,8 +25,8 @@ f(x ⇒ "Hi, " + g(x - 1))
 > Hi, 4
 ```
 
-### 2. Import params: Boilerplate-free scope propagation
---------------------------------------------------------
+2. Import params: Boilerplate-free scope propagation
+----------------------------------------------------
 
 ```scala
 class Thingy {
@@ -45,8 +45,8 @@ f { thingy: Thingy ⇒ 4 + thingy.v }
 > 11
 ```
 
-### 3. Unification of the above with by-name parameter sugar
-------------------------------------------------------------
+3. Unification of the above with by-name parameter sugar
+--------------------------------------------------------
 
 ```scala
 // deprecate:
@@ -62,7 +62,8 @@ f("foo")
 f(() ⇒ "foo")
 ```
 
-### Summary
+Summary
+-------
 
 * `A` can be used in place of `(implicit X) ⇒ A`, receving an **anonymous implicit value** into scope
 * `A` can be used in place of `(import X) ⇒ A`, receving **members of X** into scope
