@@ -4,8 +4,8 @@ DSL Paradise
 See [corresponding discussion](https://groups.google.com/forum/#!topic/scala-debate/f4CLmYShX6Q) on *scala-debate*.
 Credit for the original proposal goes to [@lihaoyi](https://github.com/lihaoyi).
 
-1. Implicit Injection: boilerplate-free implicit context propagation
-----------------------------------------------------------------------
+Implicit Injection: boilerplate-free implicit context propagation
+-----------------------------------------------------------------
 
 ```scala
 def f(a: (implicit Int) ⇒ String) = println(a(5))
@@ -25,8 +25,8 @@ f(x ⇒ "Hi, " + g(x - 1))
 > Hi, 4
 ```
 
-2. Scope Injection: Boilerplate-free scope propagation
-----------------------------------------------------
+Scope Injection: Boilerplate-free scope propagation
+---------------------------------------------------
 
 ```scala
 class Thingy {
@@ -45,8 +45,8 @@ f { thingy: Thingy ⇒ 4 + thingy.v }
 > 11
 ```
 
-3. Unification of the above with by-name parameter sugar
---------------------------------------------------------
+Unification of the above with by-name parameter sugar
+-----------------------------------------------------
 
 ```scala
 // deprecate:
