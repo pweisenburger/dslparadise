@@ -60,7 +60,7 @@ Scope and Implicit Injection provide a mechanism for reducing unnecessary boiler
 - [Enums and Enum-like arguments](#enums-and-enum-like-arguments)
 - [Propagation of implicit context](#propagation-of-implicit-context)
 - [Tighter scoping of contextual identifiers](#tighter-scoping-of-contextual-identifiers)
-- [Avoiding boilerplate “self” parameters](#avoiding-boilerplate-self-parameters)
+- [Avoiding boilerplate `self` parameters](#avoiding-boilerplate-self-parameters)
 
 ## Enums and Enum-like arguments
 
@@ -356,7 +356,7 @@ tag.html(
 
 Where apart from the initial `tag`, nothing else is sitting uselessly in the global namespace: all the tags (`head`, `script`, etc.) and the attributes (`src`, `id`) are brought into scope by the Scope Injection, allowing you to have all the use-site convenience of the initial dump-everything-in-the-global-namespace solution together with the clean namespaces of the assign-it-to-a-variable approach.
 
-## Avoiding boilerplate “self” Parameters
+## Avoiding boilerplate `self` Parameters
 
 An experimental library [Scala.React](https://github.com/ingoem/scala-react) has a workflow DSL, where it passes around a `self` param in order to give a handle which the developer can use to call methods and control the execution of the workflow:
 
