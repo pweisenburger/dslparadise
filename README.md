@@ -97,7 +97,7 @@ Import and Implicit func params provide a mechanism for reducing unnecessary boi
 - [Enums and Enum-like arguments](#enums-and-enum-like-arguments)
 - [Propagation of implicit context](#propagation-of-implicit-context)
 - [Tighter-scoping of contextual identifiers](#tighter-scoping-of-contextual-identifiers)
-- [Avoiding boilerplate 'self' parameters](#avoiding-boilplate-self-parameters)
+- [Avoiding boilerplate 'self' parameters](#avoiding-boilerplate-self-parameters)
 
 Enums and Enum-like arguments
 -----------------------------
