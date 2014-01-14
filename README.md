@@ -1,7 +1,7 @@
-# DSL Paradise
+# What?
 
+This is a Scala extension proposal, first introduced by [@lihaoyi](https://github.com/lihaoyi), with tiny syntax tweaks by [@stanch](https://github.com/stanch).
 See [corresponding discussion](https://groups.google.com/forum/#!topic/scala-debate/f4CLmYShX6Q) on *scala-debate*.
-Credit for the original proposal goes to [@lihaoyi](https://github.com/lihaoyi).
 
 ## Implicit Injection: boilerplate-free implicit context propagation
 
@@ -42,6 +42,16 @@ f { thingy: Thingy ⇒ 4 + thingy.v }
 > 11
 ```
 
+# DSL-paradise
+
+*DSL-paradise* (this project) aims to provide an experimental implementation of the proposal in the form of a compiler plugin. As hacking the parser is too much of a hassle, the suggested implementation slightly differs from the original proposal:
+
+```scala
+import org.dslparadise.annotations._
+
+def f(a: (Int @Implicit) ⇒ String) = ???
+def f(a: (Thingy @Import) ⇒ String) = ???
+```
 
 # Use cases
 
