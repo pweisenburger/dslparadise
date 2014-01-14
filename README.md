@@ -1,11 +1,9 @@
-DSL Paradise
-============
+# DSL Paradise
 
 See [corresponding discussion](https://groups.google.com/forum/#!topic/scala-debate/f4CLmYShX6Q) on *scala-debate*.
 Credit for the original proposal goes to [@lihaoyi](https://github.com/lihaoyi).
 
-Implicit Injection: boilerplate-free implicit context propagation
------------------------------------------------------------------
+## Implicit Injection: boilerplate-free implicit context propagation
 
 ```scala
 def f(a: (implicit Int) ⇒ String) = println(a(5))
@@ -25,8 +23,7 @@ f(x ⇒ "Hi, " + g(x - 1))
 > Hi, 4
 ```
 
-Scope Injection: Boilerplate-free scope propagation
----------------------------------------------------
+## Scope Injection: Boilerplate-free scope propagation
 
 ```scala
 class Thingy {
@@ -45,63 +42,17 @@ f { thingy: Thingy ⇒ 4 + thingy.v }
 > 11
 ```
 
-Unification of the above with by-name parameter sugar
------------------------------------------------------
 
-```scala
-// deprecate:
-// def f(a: ⇒ String) = println(a)
+# Use cases
 
-def f(a: () ⇒ String) = println(a())
-
-// f(z: String) rewritten to f(() ⇒ z)
-f("foo")
-> foo
-
-// compatible with () ⇒ String
-f(() ⇒ "foo")
-```
-
-Summary
--------
-
-* `A` can be used in place of `(implicit X) ⇒ A`, receving an **anonymous implicit value** into scope
-* `A` can be used in place of `(import X) ⇒ A`, receving **members of X** into scope
-* `A` can be used in place of `() ⇒ A`, receiving nothing
-
-While I understand that the third point is controversial,
-it’s worth pointing out that there is reasoning behind it,
-which goes beyond just establishing similarities.
-
-First, I don’t (yet) see anything wrong with converting `A` to `() ⇒ A`.
-(Let me know if you do.)
-One has to watch out for side-effects due to possible multiple evaluation,
-but that is the case with `a: ⇒ A` as well.
-
-Second, `a: ⇒ A` might be misleading as to when the evaluation
-of `a` occurs. Explicit `a: () ⇒ A` is much better, because
-one is forced to write `a()`.
-
-Third, by-name values — unlike `Function0`s — are not representable on their own.
-Allowing conversion from A to () ⇒ A would render things like [`Thunk`](https://github.com/stanch/macroid/blob/master/src/main/scala/org/macroid/util/Thunk.scala)
-obsolete, because you’ll no longer need to write horrible `() ⇒ x` or slightly better `Thunk(x)` everywhere.
-(Note, that you’ll still be able to write `() ⇒ x` if you seek explicitness!)
-
-Overall, my impression is that
-this change reduces the amount of magic, rather than otherwise.
-
-Use cases
-=========
-
-Import and Implicit Injection provide a mechanism for reducing unnecessary boilerplate in a variety of contexts, including:
+Scope and Implicit Injection provide a mechanism for reducing unnecessary boilerplate in a variety of contexts, including:
 
 - [Enums and Enum-like arguments](#enums-and-enum-like-arguments)
 - [Propagation of implicit context](#propagation-of-implicit-context)
-- [Tighter-scoping of contextual identifiers](#tighter-scoping-of-contextual-identifiers)
-- [Avoiding boilerplate 'self' parameters](#avoiding-boilerplate-self-parameters)
+- [Tighter scoping of contextual identifiers](#tighter-scoping-of-contextual-identifiers)
+- [Avoiding boilerplate “self” parameters](#avoiding-boilerplate-self-parameters)
 
-Enums and Enum-like arguments
------------------------------
+## Enums and Enum-like arguments
 
 ```scala
 import java.util.regex.Pattern
@@ -176,10 +127,9 @@ HttpResponse(
 
 Without any of the names escaping their use-site and polluting the global namespace.
 
-Propagation of implicit context
--------------------------------
+## Propagation of implicit context
 
-The propagation of implicit contexts into HoFs has always been a sticking point for many Scala libraries. Consider SLICK's [api](http://slick.typesafe.com/doc/2.0.0-M3/connection.html), which lets you pass a database session into a block of code either via an implicit parameter:
+The propagation of implicit contexts into HoFs has always been a sticking point for many Scala libraries. Consider SLICK’s [api](http://slick.typesafe.com/doc/2.0.0-M3/connection.html), which lets you pass a database session into a block of code either via an implicit parameter:
 
 ```scala
 db.withSession { implicit session => query.list }
@@ -213,7 +163,7 @@ This is an unfortunate, because you now have to make an annoying trade-off where
 With Implicit Injection, you could define `withSession` as:
 
 ```scala
-def withSession[T](thunk (implicit Session) => T)
+def withSession[T](thunk: (implicit Session) => T)
 ```
 
 Or equivalently using Scope Injection:
@@ -222,7 +172,7 @@ Or equivalently using Scope Injection:
 class ImplicitHolder{
   implicit val session: Session = ...
 }
-def withSession[T](thunk (import ImplicitHolder) => T)
+def withSession[T](thunk: (import ImplicitHolder) => T)
 ```
 
 In which case you could write:
@@ -236,8 +186,7 @@ and have it desugar to an implicit variable injection, providing both concisenes
 Apart from SLICK, other libraries like [Scala-STM](http://nbronson.github.io/scala-stm/) and [Scala.Rx](https://github.com/lihaoyi/scala.rx) and have a similar necessity of passing around an implicit context. They may have made different choices when faced with the dilemma above (Scala.Rx went with DynamicVariable, Scala-STM and SLICK give a choice of Dynamic or Implicit) but all could have benefited from an Scope/Implicit Injection to provide an API that is both safe and concise.
 
 
-Tighter-scoping of contextual identifiers
------------------------------------------
+## Tighter scoping of contextual identifiers
 
 ```scala
 import scala.async.Async.{async, await}
@@ -397,35 +346,9 @@ tag.html(
 
 Where apart from the initial `tag`, nothing else is sitting uselessly in the global namespace: all the tags (`head`, `script`, etc.) and the attributes (`src`, `id`) are brought into scope by the Scope Injection, allowing you to have all the use-site convenience of the initial dump-everything-in-the-global-namespace solution together with the clean namespaces of the assign-it-to-a-variable approach.
 
-Avoiding boilerplate 'self' Parameters
-======================================
-```scala
-import scalaz.std.option._
-import scalaz.std.anyVal._
+## Avoiding boilerplate “self” Parameters
 
-val b = mutate(a) { $ =>
-    $.b.b := 9
-    $.b.c.*.b += 10
-}
-assert(b === B("foo", A(List(4, 8), 9, Some(A(List(), 18, None)))))
-```
-
-The above snippet of code is taken from [Mutate](https://github.com/stanch/mutate), a macro lens library to allow easier updates of immutable structures. As you can see, it passes around a `$` parameter, simply to give you a thing to call properties on in order for the lense to know what to do. With Scope Injection, these callsites could be slimmed down to:
-
-```scala
-import scalaz.std.option._
-import scalaz.std.anyVal._
-
-val b = mutate(a) {
-    b.b := 9
-    b.c.*.b += 10
-}
-assert(b === B("foo", A(List(4, 8), 9, Some(A(List(), 18, None)))))
-```
-
-Which is a nice improvement.
-
-Another API that could benefit is the experimental library library [Scala.React](https://github.com/ingoem/scala-react), where in the workflow DSL, it passes around a `self` param in order to give a handle which the developer can use to call methods and control the execution of the workflow:
+An experimental library [Scala.React](https://github.com/ingoem/scala-react) has a workflow DSL, where it passes around a `self` param in order to give a handle which the developer can use to call methods and control the execution of the workflow:
 
 ```scala
 Events.loop[B] { self =>
