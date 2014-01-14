@@ -23,7 +23,7 @@ f(x ⇒ "Hi, " + g(x - 1))
 > Hi, 4
 ```
 
-## Scope Injection: Boilerplate-free scope propagation
+## Scope Injection: boilerplate-free scope propagation
 
 ```scala
 class Thingy {
