@@ -4,7 +4,7 @@ DSL Paradise
 See [corresponding discussion](https://groups.google.com/forum/#!topic/scala-debate/f4CLmYShX6Q) on *scala-debate*.
 Credit for the original proposal goes to [@lihaoyi](https://github.com/lihaoyi).
 
-1. Implicit func params: boilerplate-free implicit context propagation
+1. Implicit Injection: boilerplate-free implicit context propagation
 ----------------------------------------------------------------------
 
 ```scala
@@ -25,7 +25,7 @@ f(x ⇒ "Hi, " + g(x - 1))
 > Hi, 4
 ```
 
-2. Import params: Boilerplate-free scope propagation
+2. Scope Injection: Boilerplate-free scope propagation
 ----------------------------------------------------
 
 ```scala
@@ -93,7 +93,7 @@ this change reduces the amount of magic, rather than otherwise.
 Use cases
 =========
 
-Import and Implicit func params provide a mechanism for reducing unnecessary boilerplate in a variety of contexts, including:
+Import and Implicit Injection provide a mechanism for reducing unnecessary boilerplate in a variety of contexts, including:
 
 - [Enums and Enum-like arguments](#enums-and-enum-like-arguments)
 - [Propagation of implicit context](#propagation-of-implicit-context)
@@ -122,7 +122,7 @@ val pattern = Pattern.compile(
 )
 ```
 
-Which solves the verbosity problem, but at a cost of namespace pollution: now MULTILINE and CASE_INSENSITIVE are sitting taking up room in the global namespace, when you really only need them as an argument to `Pattern.compile`. This tension between clean-namespace-but-verbose and dirty-namespace-but-convenient could be solved by Import Params, e.g. if `Pattern.compile` was defined as:
+Which solves the verbosity problem, but at a cost of namespace pollution: now MULTILINE and CASE_INSENSITIVE are sitting taking up room in the global namespace, when you really only need them as an argument to `Pattern.compile`. This tension between clean-namespace-but-verbose and dirty-namespace-but-convenient could be solved by Scope Injection, e.g. if `Pattern.compile` was defined as:
 
 ```scala
 def compile(s: String, flags: (import Pattern.type) => Int) = ...
@@ -157,7 +157,7 @@ HttpResponse(
 )
 ```
 
-This shows the problem taken to the extreme: why should I have to say that the `StatusCode` `OK` comes from `StatusCodes`, when every `StatusCode` comes from `StatusCodes`? Again, you could simply import everything, but that would incur a heavy tax of namespace pollution. with Import Params, you could write:
+This shows the problem taken to the extreme: why should I have to say that the `StatusCode` `OK` comes from `StatusCodes`, when every `StatusCode` comes from `StatusCodes`? Again, you could simply import everything, but that would incur a heavy tax of namespace pollution. with Scope Injection, you could write:
 
 ```scala
 HttpResponse(
@@ -210,13 +210,13 @@ This is an unfortunate, because you now have to make an annoying trade-off where
 - Either you go for the annoying-but-safe `implicit` scope
 - Or the convenient-but-dangerous dynamic scope
 
-With Implicit Func params, you could define `withSession` as:
+With Implicit Injection, you could define `withSession` as:
 
 ```scala
 def withSession[T](thunk (implicit Session) => T)
 ```
 
-Or equivalently using Import params:
+Or equivalently using Scope Injection:
 
 ```scala
 class ImplicitHolder{
@@ -233,7 +233,7 @@ db.withSession { Future{ query.list } }
 
 and have it desugar to an implicit variable injection, providing both conciseness as well as proper/safe lexical scoping and solving the terrible dilemma we faced before!
 
-Apart from SLICK, other libraries like [Scala-STM](http://nbronson.github.io/scala-stm/) and [Scala.Rx](https://github.com/lihaoyi/scala.rx) and have a similar necessity of passing around an implicit context. They may have made different choices when faced with the dilemma above (Scala.Rx went with DynamicVariable, Scala-STM and SLICK give a choice of Dynamic or Implicit) but all could have benefited from an Import/Implicit func param to provide an API that is both safe and concise.
+Apart from SLICK, other libraries like [Scala-STM](http://nbronson.github.io/scala-stm/) and [Scala.Rx](https://github.com/lihaoyi/scala.rx) and have a similar necessity of passing around an implicit context. They may have made different choices when faced with the dilemma above (Scala.Rx went with DynamicVariable, Scala-STM and SLICK give a choice of Dynamic or Implicit) but all could have benefited from an Scope/Implicit Injection to provide an API that is both safe and concise.
 
 
 Tighter-scoping of contextual identifiers
@@ -285,7 +285,7 @@ val future = async { ctx =>
 
 All of these solve the problen of `await` being too broadly scoped, but at a cost of boilerplate and inconvenience. Given that the inconvenience is felt at every callsite, the Scala-Async developers have chosen to simply import `await` globally, providing convenience at a cost of safety.
 
-With an Import param, you could define `async` as:
+With Scope Injection, you could define `async` as:
 
 ```scala
 object Holder{
@@ -321,7 +321,7 @@ val main = javascript {
 }
 ```
 
-As you can see, in this case you have several magic identifiers that only have meaning within the context of the `javascript{}` block: `eval`, `inject` and others (e.g. `window`) not shown in this snippet. Currently, these simply exist as names imported into the top-level namespace, cluttering up the namespace and throwing a RuntimeException if accidentally used. With Import params, you could write the same code without the "import everything":
+As you can see, in this case you have several magic identifiers that only have meaning within the context of the `javascript{}` block: `eval`, `inject` and others (e.g. `window`) not shown in this snippet. Currently, these simply exist as names imported into the top-level namespace, cluttering up the namespace and throwing a RuntimeException if accidentally used. With Scope Injection, you could write the same code without the "import everything":
 
 ```scala
 import org.jscala.javascript
@@ -375,7 +375,7 @@ In this case, `src` and `id` represent HTML attributes that only make sense with
 
 This trades off some call-site convenience in exchange for not having all the HTML attributes sitting in your global namespace where you don't want them.
 
-However, if we made the various tags' `apply` methods take Import params, we could have a use-site syntax like:
+However, if we made the various tags' `apply` methods take Scope Injection, we could have a use-site syntax like:
 
 ```scala
 import scalatags.tag
@@ -395,7 +395,7 @@ tag.html(
 )
 ```
 
-Where apart from the initial `tag`, nothing else is sitting uselessly in the global namespace: all the tags (`head`, `script`, etc.) and the attributes (`src`, `id`) are brought into scope by the import param, allowing you to have all the use-site convenience of the initial dump-everything-in-the-global-namespace solution together with the clean namespaces of the assign-it-to-a-variable approach.
+Where apart from the initial `tag`, nothing else is sitting uselessly in the global namespace: all the tags (`head`, `script`, etc.) and the attributes (`src`, `id`) are brought into scope by the Scope Injection, allowing you to have all the use-site convenience of the initial dump-everything-in-the-global-namespace solution together with the clean namespaces of the assign-it-to-a-variable approach.
 
 Avoiding boilerplate 'self' Parameters
 ======================================
@@ -410,7 +410,7 @@ val b = mutate(a) { $ =>
 assert(b === B("foo", A(List(4, 8), 9, Some(A(List(), 18, None)))))
 ```
 
-The above snippet of code is taken from [Mutate](https://github.com/stanch/mutate), a macro lens library to allow easier updates of immutable structures. As you can see, it passes around a `$` parameter, simply to give you a thing to call properties on in order for the lense to know what to do. With Import params, these callsites could be slimmed down to:
+The above snippet of code is taken from [Mutate](https://github.com/stanch/mutate), a macro lens library to allow easier updates of immutable structures. As you can see, it passes around a `$` parameter, simply to give you a thing to call properties on in order for the lense to know what to do. With Scope Injection, these callsites could be slimmed down to:
 
 ```scala
 import scalaz.std.option._
@@ -435,7 +435,7 @@ Events.loop[B] { self =>
 }
 ```
 
-With Import parameters, these additional buttons could be simply included into the scope automatically:
+With Scope Injection, these additional buttons could be simply included into the scope automatically:
 
 ```scala
 Events.loop[B] {
