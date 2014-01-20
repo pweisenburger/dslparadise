@@ -6,21 +6,14 @@ See [corresponding discussion](https://groups.google.com/forum/#!topic/scala-deb
 ## Implicit Injection: boilerplate-free implicit context propagation
 
 ```scala
-def f(a: (implicit Int) ⇒ String) = println(a(5))
+def f(a: (Int @Implicit) ⇒ String) = println(a(5))
 
 def g(implicit x: Int) = x.toString
 
-// f(z: String) is rewritten to f { implicit x$1: Int ⇒ z }
-f("Hi, " + g)
-> Hi, 5
-
-// compatible with Int ⇒ String (1):
-f(implicit x ⇒ "Hi, " + g(x + 1) + g)
-> Hi, 65
-
-// compatible with Int ⇒ String (2):
-f(x ⇒ "Hi, " + g(x - 1))
-> Hi, 4
+> f("Hi, " + g)
+// Desugaring
+> f(implicit x => "Hi, " + g)
+Hi, 5
 ```
 
 ## Scope Injection: boilerplate-free scope propagation
@@ -31,15 +24,27 @@ class Thingy {
   val v = 7
 }
 
-def f(a: (import Thingy) ⇒ Int) = println(a(new Thingy))
+def f(a: (Thingy @Import) ⇒ Int) = println(a(new Thingy))
 
-// f(z: Int) is rewritten to f { x$1: Thingy ⇒ import x$1._; z }
-f(4 + u - v)
-> 3
+> f(4 + u - v)
+// Desugaring
+> f{ x$ => import x$._; 4 + u - v }
+3
+```
 
-// compatible with Thingy ⇒ Int
-f { thingy: Thingy ⇒ 4 + thingy.v }
-> 11
+## Static Scope Injection: non-by-name Scope Injection
+
+```scala
+object Thingy{
+  val u = 6
+}
+
+def f(a: Int @StaticImport[Thingy.type]) = println(a)
+
+> f(u + 1)
+// Desugaring
+> f{import Thingy._; u + 1}
+7
 ```
 
 # DSL-paradise
@@ -51,6 +56,7 @@ import org.dslparadise.annotations._
 
 def f(a: (Int @Implicit) ⇒ String) = ???
 def f(a: (Thingy @Import) ⇒ String) = ???
+def f(a: Int @StaticImport[Thingy.type]) = ???
 ```
 
 # Use cases
@@ -83,10 +89,10 @@ val pattern = Pattern.compile(
 )
 ```
 
-Which solves the verbosity problem, but at a cost of namespace pollution: now MULTILINE and CASE_INSENSITIVE are sitting taking up room in the global namespace, when you really only need them as an argument to `Pattern.compile`. This tension between clean-namespace-but-verbose and dirty-namespace-but-convenient could be solved by Scope Injection, e.g. if `Pattern.compile` was defined as:
+Which solves the verbosity problem, but at a cost of namespace pollution: now MULTILINE and CASE_INSENSITIVE are sitting taking up room in the global namespace, when you really only need them as an argument to `Pattern.compile`. This tension between clean-namespace-but-verbose and dirty-namespace-but-convenient could be solved by Static Scope Injection, e.g. if `Pattern.compile` was defined as:
 
 ```scala
-def compile(s: String, flags: (import Pattern.type) => Int) = ...
+def compile(s: String, flags: Int @StaticImport[Pattern.type]) = ...
 ```
 
 You could then write:
@@ -173,7 +179,7 @@ This is an unfortunate, because you now have to make an annoying trade-off where
 With Implicit Injection, you could define `withSession` as:
 
 ```scala
-def withSession[T](thunk: (implicit Session) => T)
+def withSession[T](thunk: (Session @Implicit) => T)
 ```
 
 Or equivalently using Scope Injection:
@@ -182,7 +188,7 @@ Or equivalently using Scope Injection:
 class ImplicitHolder{
   implicit val session: Session = ...
 }
-def withSession[T](thunk: (import ImplicitHolder) => T)
+def withSession[T](thunk: (ImplicitHolder @Import) => T)
 ```
 
 In which case you could write:
