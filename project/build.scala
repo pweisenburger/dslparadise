@@ -6,7 +6,7 @@ object build extends Build {
     scalaVersion := "2.11.0-SNAPSHOT",
     crossVersion := CrossVersion.full,
     version := "0.0.1-SNAPSHOT",
-    organization := "org.dslparadise",
+    organization := "dslparadise",
     resolvers ++= Seq(
       Resolver.sonatypeRepo("snapshots"),
       Resolver.sonatypeRepo("releases")
@@ -23,7 +23,7 @@ object build extends Build {
   ) settings (
     sharedSettings : _*
   ) settings (
-    resourceDirectory in Compile := baseDirectory.value / "src" / "main" / "scala" / "org" / "dslparadise" / "embedded",
+    resourceDirectory in Compile := baseDirectory.value / "src" / "main" / "scala" / "dslparadise" / "embedded",
     libraryDependencies ++= Seq(
       "org.scala-lang" % "scala-library" % scalaVersion.value,
       "org.scala-lang" % "scala-compiler" % scalaVersion.value
