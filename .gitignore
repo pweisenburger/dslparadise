@@ -1,5 +1,12 @@
+bin/
 target/
+
+.idea/
+.idea_modules/
+.settings/
+.cache
+.project
+.classpath
 *.iml
-.idea
-.idea_modules
-local-*
+*.ipr
+*.iws
