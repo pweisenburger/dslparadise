@@ -68,6 +68,41 @@ def f(a: Int `import._` Thingy.type) = println(a)
 ```
 
 
+## Get the compiler plugin
+
+The plugin is currently not available from an online repository in binary form
+as managed dependency. But you can clone the *Git* repository and use *sbt* to
+publish the project locally and use it from other projects on the same machine:
+
+```
+sbt publishLocal
+```
+
+After that, you can use the compiler plugin in an *sbt* project by specifying it
+in the build file:
+
+```scala
+addCompilerPlugin("dslparadise" %% "dslparadise" % "0.0.1-SNAPSHOT")
+```
+
+You also need to make the needed types available. This can be done by adding
+the following dependency to your build file:
+
+```scala
+libraryDependencies += "dslparadise" %% "dslparadise-types" % "0.0.1-SNAPSHOT"
+```
+
+The latter only defines the types used by the plugin as follows:
+
+```scala
+package object dslparadise {
+  type `implicit =>`[-T, +R] = T => R
+  type `import._ =>`[-T, +R] = T => R
+  type `import._`[+T, I] = T
+}
+```
+
+
 ## Use cases
 
 Scope and implicit context injection provide a mechanism for reducing
