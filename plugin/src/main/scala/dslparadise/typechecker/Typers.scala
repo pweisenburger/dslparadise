@@ -16,11 +16,15 @@ trait Typers {
         q"{ implicit $$bang => $arg }"
       },
 
-      "dslparadise.import._ =>" -> { (arg: Tree, pt: Type) =>
+      "dslparadise.implicit import =>" -> { (arg: Tree, pt: Type) =>
+        q"{ implicit $$bang => import $$bang._; $arg }"
+      },
+
+      "dslparadise.import =>" -> { (arg: Tree, pt: Type) =>
         q"{ $$bang => import $$bang._; $arg }"
       },
 
-      "dslparadise.import._" -> { (arg: Tree, pt: Type) =>
+      "dslparadise.import" -> { (arg: Tree, pt: Type) =>
         q"{ import ${pt.typeArgs(1).typeSymbol.companionSymbol}._; $arg }"
       }
     )

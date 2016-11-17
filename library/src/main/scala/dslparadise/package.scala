@@ -1,7 +1,6 @@
 package object dslparadise {
   type `implicit =>`[-T, +R] = T => R
-
-  type `import._ =>`[-T, +R] = T => R
-
-  type `import._`[+T, I] = T
+  type `implicit import =>`[-T, +R] = T => R
+  type `import =>`[-T, +R] = T => R
+  type `import`[+T, I] = T
 }

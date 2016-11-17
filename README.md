@@ -23,7 +23,7 @@ def g(implicit x: Int) = x.toString
 
 > f("Hi, " + g)
 // desugaring
-> f { implicit $bang => "Hi, " + g }
+> f { implicit imparg$1 => "Hi, " + g }
 Hi, 5
 ```
 
@@ -40,11 +40,11 @@ class Thingy {
 def f(a: (import Thingy) => Int) = println(a(new Thingy))
 
 // current syntax as implemented in the compiler plugin
-def f(a: Thingy `import._ =>` Int) = println(a(new Thingy))
+def f(a: Thingy `import =>` Int) = println(a(new Thingy))
 
 > f(4 + u - v)
 // desugaring
-> f { $bang => import $bang._; 4 + u - v }
+> f { imparg$1 => import imparg$1._; 4 + u - v }
 3
 ```
 
@@ -59,7 +59,7 @@ object Thingy {
 // no original syntax proposal for the Scala language extension
 
 // current syntax as implemented in the compiler plugin
-def f(a: Int `import._` Thingy.type) = println(a)
+def f(a: Int `import` Thingy.type) = println(a)
 
 > f(u + 1)
 // desugaring
@@ -97,8 +97,9 @@ The latter only defines the types used by the plugin as follows:
 ```scala
 package object dslparadise {
   type `implicit =>`[-T, +R] = T => R
-  type `import._ =>`[-T, +R] = T => R
-  type `import._`[+T, I] = T
+  type `implicit import =>`[-T, +R] = T => R
+  type `import =>`[-T, +R] = T => R
+  type `import`[+T, I] = T
 }
 ```
 
@@ -148,7 +149,7 @@ dirty-namespace-but-convenient could be solved by Static Scope Injection, e.g.
 if `Pattern.compile` was defined as:
 
 ```scala
-def compile(s: String, flags: Int `import._` Pattern) = ...
+def compile(s: String, flags: Int `import` Pattern) = ...
 ```
 
 You could then write:
@@ -260,7 +261,7 @@ Or equivalently using Scope Injection:
 class ImplicitHolder {
   implicit val session: Session = ...
 }
-def withSession[T](thunk: ImplicitHolder `import._ =>` T)
+def withSession[T](thunk: ImplicitHolder `import =>` T)
 ```
 
 In which case you could write:
@@ -344,7 +345,7 @@ With Scope Injection, you could define `async` as:
 object Holder {
   val await = ???
 }
-macro def async[T](thunk: Holder `import._ =>` T): Future[T] = ???
+macro def async[T](thunk: Holder `import =>` T): Future[T] = ???
 ```
 
 Which would give you a call-site syntax:
