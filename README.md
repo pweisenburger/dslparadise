@@ -8,7 +8,7 @@ discussion](http://groups.google.com/forum/#!topic/scala-debate/f4CLmYShX6Q) on
 *scala-debate*.
 
 
-## Boilerplate-free Implicit and Scope Injection
+## Boilerplate-free Implicit Context Propagation and Scope Injection
 
 ### Implicit Context Propagation
 
@@ -28,7 +28,7 @@ Hi, 5
 ```
 
 
-### Scope Propagation
+### Scope Injection
 
 ```scala
 class Thingy {
@@ -68,6 +68,63 @@ def f(a: Int `import` Thingy.type) = println(a)
 ```
 
 
+### Nested Contexts
+
+Using a fresh name for each compiler-generated implicit argument prevents
+nesting of contexts due to ambiguous implicit values:
+
+```scala
+def withContext[T](f: Context[T] `implicit =>` Result) = ...
+
+withContext[A] {
+  implicitly[Context[_]]     // gets `Context[A]`
+  withContext[B] {
+    implicitly[Context[_]]   // "ambiguous implicit values" for `Context[A]` and `Context[B]`
+    ...
+  }
+  ...
+}
+
+// desugaring
+withContext[A] { implicit imparg$1 =>
+  implicitly[Context[_]]     // gets `Context[A]`
+  withContext[B] { implicit imparg$2 =>
+    implicitly[Context[_]]   // "ambiguous implicit values" for `Context[A]` and `Context[B]`
+    ...
+  }
+  ...
+}
+```
+
+You can specify a fixed name to be used for the implicit argument to enable
+implicit argument resolution for nested contexts by shadowing the implicit
+argument of the outer context (of course, it may be a good idea to pick a name
+that is unlikely to conflict with other identifiers):
+
+```scala
+def withContext[T](f: Context[T] `implicit =>` Result `argument name` { type ctx }) = ...
+
+withContext[A] {
+  implicitly[Context[_]]     // gets `Context[A]`
+  withContext[B] {
+    implicitly[Context[_]]   // gets `Context[B]`
+    ...
+  }
+  ...
+}
+
+// desugaring
+withContext[A] { implicit ctx =>
+  implicitly[Context[_]]     // gets `Context[A]`
+  withContext[B] { implicit ctx =>
+    implicitly[Context[_]]   // gets `Context[B]`
+    ...
+  }
+  ...
+}
+```
+
+
 ## Get the compiler plugin
 
 The plugin is currently not available from an online repository in binary form
@@ -100,6 +157,8 @@ package object dslparadise {
   type `implicit import =>`[-T, +R] = T => R
   type `import =>`[-T, +R] = T => R
   type `import`[+T, I] = T
+
+  type `argument name`[+T <: _ => _, N] = T
 }
 ```
 

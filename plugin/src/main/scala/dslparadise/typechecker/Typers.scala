@@ -10,30 +10,53 @@ trait Typers {
   import global._
 
   trait ParadiseTyper extends Typer with TyperContextErrors {
+    def makeArg(name: TermName) =
+      ValDef(Modifiers(Flag.PARAM), name, TypeTree(), EmptyTree)
+
+    def makeImplicitArg(name: TermName) =
+      ValDef(Modifiers(Flag.PARAM | Flag.IMPLICIT), name, TypeTree(), EmptyTree)
+
     // rewriting rules for the DSL Paradise types
     val rewritings = Map(
-      "dslparadise.implicit =>" -> { (arg: Tree, pt: Type) =>
-        q"{ implicit $$bang => $arg }"
+      "dslparadise.implicit =>" -> { (name: TermName, arg: Tree, pt: Type) =>
+        q"{ ${makeImplicitArg(name)} => $arg }"
       },
 
-      "dslparadise.implicit import =>" -> { (arg: Tree, pt: Type) =>
-        q"{ implicit $$bang => import $$bang._; $arg }"
+      "dslparadise.implicit import =>" -> { (name: TermName, arg: Tree, pt: Type) =>
+        q"{ ${makeImplicitArg(name)} => import $name._; $arg }"
       },
 
-      "dslparadise.import =>" -> { (arg: Tree, pt: Type) =>
-        q"{ $$bang => import $$bang._; $arg }"
+      "dslparadise.import =>" -> { (name: TermName, arg: Tree, pt: Type) =>
+        q"{ ${makeArg(name)} => import $name._; $arg }"
       },
 
-      "dslparadise.import" -> { (arg: Tree, pt: Type) =>
+      "dslparadise.import" -> { (name: TermName, arg: Tree, pt: Type) =>
         q"{ import ${pt.typeArgs(1).typeSymbol.companionSymbol}._; $arg }"
       }
     )
 
+    // name for implicit argument
+    val argumentName = "dslparadise.argument name"
+
     override def typedArg(arg: Tree, mode: Mode, newmode: Mode, pt: Type): Tree = {
       val newarg = pt match {
-        case TypeRef(_, sym, _) =>
+        case TypeRef(_, sym, args) =>
+          // extract name for implicit argument if given
+          val (symbol, name) =
+            if ((NameTransformer decode sym.fullName) == argumentName)
+              args match {
+                case Seq(
+                    TypeRef(_, sym, _),
+                    RefinedType(List(definitions.AnyRefTpe), Scope(decl))) =>
+                  (sym, decl.name.toTermName)
+                case _ =>
+                  (NoSymbol, TermName(""))
+              }
+            else
+              (sym, context.unit freshTermName "imparg$")
+
           // find rewriting rule for the expected type
-          rewritings get (NameTransformer decode sym.fullName) map { rewrite =>
+          rewritings get (NameTransformer decode symbol.fullName) map { rewrite =>
 
             // only rewrite argument if it does not compile in its current form
             val rewriteArg = context inSilentMode {
@@ -43,7 +66,7 @@ trait Typers {
 
             if (rewriteArg) {
               // apply rewriting rule
-              val newarg = rewrite(arg, pt)
+              val newarg = rewrite(name, arg, pt)
 
               // to improve compiler-issued error messages, keep the original
               // (non-rewritten) argument if the new (rewritten) argument
