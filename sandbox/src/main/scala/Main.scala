@@ -42,6 +42,27 @@ object StaticScopeInjection {
 
 
 
+object NestedContexts {
+  class Context[T]
+  class Result
+  class A
+  class B
+
+  def withContext[T](f: Context[T] `implicit =>` Result `argument name` { type ctx }) = ???
+
+
+  withContext[A] {
+    implicitly[Context[_]] // gets `Context[A]`
+    withContext[B] {
+      implicitly[Context[_]] // gets `Context[A]`
+      new Result
+    }
+    new Result
+  }
+}
+
+
+
 object JavaRegex {
   class Pattern
   object Pattern {
