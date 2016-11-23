@@ -1,6 +1,7 @@
 package dslparadise
 package typechecker
 
+import scala.collection.mutable.LinkedHashMap
 import scala.reflect.NameTransformer
 import scala.reflect.internal.Mode
 
@@ -10,6 +11,39 @@ trait Typers {
   import global._
 
   trait ParadiseTyper extends Typer with TyperContextErrors {
+    val warningFields = try {
+      val allWarningsField = currentRun.reporting.getClass.getDeclaredField("_allConditionalWarnings")
+      allWarningsField.setAccessible(true)
+      allWarningsField.get(currentRun.reporting).asInstanceOf[List[_]].headOption map { warning =>
+        val warningsField = warning.getClass.getDeclaredField("warnings")
+        warningsField.setAccessible(true)
+        val doReportField = warning.getClass.getDeclaredField("doReport")
+        doReportField.setAccessible(true)
+        (allWarningsField, warningsField, doReportField)
+      }
+    }
+    catch { case _: NoSuchFieldException => None }
+
+    def silenceRunReporter[T](op: => T): T = warningFields match {
+      case Some((allWarningsField, warningsField, doReportField)) =>
+        val allWarnings =
+          allWarningsField.get(currentRun.reporting).asInstanceOf[List[_]]
+        val warningBackups = allWarnings map warningsField.get
+        allWarnings foreach {
+          warningsField.set(_, LinkedHashMap.empty[Position, (String, String)])
+        }
+        val doReportBackups = allWarnings map doReportField.get
+        allWarnings foreach {
+          doReportField.set(_, () => false)
+        }
+        val result = op
+        allWarnings zip warningBackups foreach (warningsField.set _).tupled
+        allWarnings zip doReportBackups foreach (doReportField.set _).tupled
+        result
+      case None =>
+        op
+    }
+
     def makeArg(name: TermName) =
       ValDef(Modifiers(Flag.PARAM), name, TypeTree(), EmptyTree)
 
@@ -40,13 +74,13 @@ trait Typers {
 
     override def typedArg(arg: Tree, mode: Mode, newmode: Mode, pt: Type): Tree = {
       val newarg = pt match {
-        case TypeRef(_, sym, args) =>
+        case TypeRef(_, sym, args @ Seq(_, _)) =>
           // extract name for implicit argument if given
           val (symbol, name) =
             if ((NameTransformer decode sym.fullName) == argumentName)
               args match {
                 case Seq(
-                    TypeRef(_, sym, _),
+                    TypeRef(_, sym, Seq(_, _)),
                     RefinedType(List(definitions.AnyRefTpe), Scope(decl))) =>
                   (sym, decl.name.toTermName)
                 case _ =>
@@ -59,9 +93,11 @@ trait Typers {
           rewritings get (NameTransformer decode symbol.fullName) map { rewrite =>
 
             // only rewrite argument if it does not compile in its current form
-            val rewriteArg = context inSilentMode {
-              super.typedArg(arg.duplicate, mode, newmode, pt)
-              context.reporter.hasErrors
+            val rewriteArg = silenceRunReporter {
+              context inSilentMode {
+                super.typedArg(arg.duplicate, mode, newmode, pt)
+                context.reporter.hasErrors
+              }
             }
 
             if (rewriteArg) {
@@ -77,10 +113,12 @@ trait Typers {
               // - whose message is "missing parameter type", which could be
               //   misleading if the rewriting introduced a function and the
               //   original code already had function type
-              val keepArg = context inSilentMode {
-                super.typedArg(newarg.duplicate, mode, newmode, pt)
-                context.reporter.errors exists { e =>
-                  e.errPos == NoPosition || e.errMsg == "missing parameter type"
+              val keepArg = silenceRunReporter {
+                context inSilentMode {
+                  super.typedArg(newarg.duplicate, mode, newmode, pt)
+                  context.reporter.errors exists { e =>
+                    e.errPos == NoPosition || e.errMsg == "missing parameter type"
+                  }
                 }
               }
 
