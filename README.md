@@ -3,9 +3,10 @@
 *DSL Paradise* is a compiler plugin for boilerplate-free implicit and scope
 injection based on a Scala language extension proposal, first introduced by
 [@lihaoyi](http://github.com/lihaoyi) and [@stanch](http://github.com/stanch).
-See [corresponding
-discussion](http://groups.google.com/forum/#!topic/scala-debate/f4CLmYShX6Q) on
-*scala-debate*.
+See [corresponding discussion](http://groups.google.com/forum/#!topic/scala-debate/f4CLmYShX6Q)
+on *scala-debate*. Contextual abstractions for implicit context propagation are
+under consideration for the Dotty compiler as
+*[implicit function types](http://scala-lang.org/blog/2016/12/07/implicit-function-types.html)*.
 
 
 ## Boilerplate-free Implicit Context Propagation and Scope Injection
