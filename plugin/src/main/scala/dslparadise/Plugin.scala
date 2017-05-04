@@ -6,8 +6,6 @@ import scala.collection.mutable.{Map, Set}
 import dslparadise.typechecker.Analyzer
 
 class Plugin(val global: Global) extends NscPlugin {
-  import global._
-
   val name = "dslparadise"
   val description = "DSL Paradise"
   val components = List.empty

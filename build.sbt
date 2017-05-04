@@ -1,6 +1,6 @@
-scalaVersion in ThisBuild := "2.12.0"
+scalaVersion in ThisBuild := "2.12.2"
 
-crossScalaVersions in ThisBuild := Seq("2.11.6", "2.11.7", "2.11.8", "2.12.0")
+crossScalaVersions in ThisBuild := Seq("2.11.6", "2.11.7", "2.11.8", "2.11.9", "2.11.10", "2.11.11", "2.12.0", "2.12.1", "2.12.2")
 
 version in ThisBuild := "0.0.1-SNAPSHOT"
 

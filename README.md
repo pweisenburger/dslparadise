@@ -5,7 +5,7 @@ injection based on a Scala language extension proposal, first introduced by
 [@lihaoyi](http://github.com/lihaoyi) and [@stanch](http://github.com/stanch).
 See [corresponding discussion](http://groups.google.com/forum/#!topic/scala-debate/f4CLmYShX6Q)
 on *scala-debate*. Contextual abstractions for implicit context propagation are
-under consideration for the Dotty compiler as
+will be supported by the Dotty compiler as
 *[implicit function types](http://scala-lang.org/blog/2016/12/07/implicit-function-types.html)*.
 
 
@@ -303,7 +303,7 @@ db.withSession { implicit session => Future { query.list } }
 
 Works great, but is quite a mouthful to type and to read each time.
 
-This is an unfortunate, because you now have to make an annoying trade-off where
+This is unfortunate, because you now have to make an annoying trade-off where
 there is no good answer:
 
 - Either you go for the annoying-but-safe `implicit` scope
@@ -336,7 +336,7 @@ dilemma we faced before!
 
 Apart from Slick, other libraries like
 [Scala-STM](http://nbronson.github.io/scala-stm/) and
-[Scala.Rx](http://github.com/lihaoyi/scala.rx) and have a similar necessity of
+[Scala.Rx](http://github.com/lihaoyi/scala.rx) have a similar necessity of
 passing around an implicit context. They may have made different choices when
 faced with the dilemma above (Scala.Rx went with DynamicVariable, Scala-STM and
 Slick give a choice of dynamic or implicit) but all could have benefited from an
