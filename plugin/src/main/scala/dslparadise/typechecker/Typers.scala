@@ -1,49 +1,15 @@
 package dslparadise
 package typechecker
 
-import scala.collection.mutable.LinkedHashMap
 import scala.reflect.NameTransformer
 import scala.reflect.internal.Mode
 
-trait Typers {
+trait Typers extends ReportingSilencer {
   self: Analyzer =>
 
   import global._
 
-  trait ParadiseTyper extends Typer with TyperContextErrors {
-    val warningFields = try {
-      val allWarningsField = currentRun.reporting.getClass.getDeclaredField("_allConditionalWarnings")
-      allWarningsField.setAccessible(true)
-      allWarningsField.get(currentRun.reporting).asInstanceOf[List[_]].headOption map { warning =>
-        val warningsField = warning.getClass.getDeclaredField("warnings")
-        warningsField.setAccessible(true)
-        val doReportField = warning.getClass.getDeclaredField("doReport")
-        doReportField.setAccessible(true)
-        (allWarningsField, warningsField, doReportField)
-      }
-    }
-    catch { case _: NoSuchFieldException => None }
-
-    def silenceRunReporter[T](op: => T): T = warningFields match {
-      case Some((allWarningsField, warningsField, doReportField)) =>
-        val allWarnings =
-          allWarningsField.get(currentRun.reporting).asInstanceOf[List[_]]
-        val warningBackups = allWarnings map warningsField.get
-        allWarnings foreach {
-          warningsField.set(_, LinkedHashMap.empty[Position, (String, String)])
-        }
-        val doReportBackups = allWarnings map doReportField.get
-        allWarnings foreach {
-          doReportField.set(_, () => false)
-        }
-        val result = op
-        allWarnings zip warningBackups foreach (warningsField.set _).tupled
-        allWarnings zip doReportBackups foreach (doReportField.set _).tupled
-        result
-      case None =>
-        op
-    }
-
+  trait ParadiseTyper extends Typer with Silencer {
     def makeArg(name: TermName) =
       ValDef(Modifiers(Flag.PARAM), name, TypeTree(), EmptyTree)
 
@@ -93,7 +59,7 @@ trait Typers {
           rewritings get (NameTransformer decode symbol.fullName) map { rewrite =>
 
             // only rewrite argument if it does not compile in its current form
-            val rewriteArg = silenceRunReporter {
+            val rewriteArg = silenceReporting {
               context inSilentMode {
                 super.typedArg(arg.duplicate, mode, newmode, pt)
                 context.reporter.hasErrors
@@ -113,7 +79,7 @@ trait Typers {
               // - whose message is "missing parameter type", which could be
               //   misleading if the rewriting introduced a function and the
               //   original code already had function type
-              val keepArg = silenceRunReporter {
+              val keepArg = silenceReporting {
                 context inSilentMode {
                   super.typedArg(newarg.duplicate, mode, newmode, pt)
                   context.reporter.errors exists { e =>
