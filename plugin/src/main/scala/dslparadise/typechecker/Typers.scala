@@ -16,30 +16,36 @@ trait Typers extends ReportingSilencer {
     def makeImplicitArg(name: TermName) =
       ValDef(Modifiers(Flag.PARAM | Flag.IMPLICIT), name, TypeTree(), EmptyTree)
 
+    case class Rewriting(
+        val hasArgument: Boolean, val hasImplicitArgument: Boolean)(
+        rewrite: (TermName, Tree, Type) => Tree) {
+      def apply(name: TermName, tree: Tree, tpe: Type) = rewrite(name, tree, tpe)
+    }
+
     // rewriting rules for the DSL Paradise types
     val rewritings = Map(
-      "dslparadise.implicit =>" -> { (name: TermName, arg: Tree, pt: Type) =>
-        q"{ ${makeImplicitArg(name)} => $arg }"
+      "dslparadise.implicit =>" -> Rewriting(true, true) {
+        (name, tree, tpe) => q"{ ${makeImplicitArg(name)} => $tree }"
       },
 
-      "dslparadise.implicit import =>" -> { (name: TermName, arg: Tree, pt: Type) =>
-        q"{ ${makeImplicitArg(name)} => import $name._; $arg }"
+      "dslparadise.implicit import =>" -> Rewriting(true, true) {
+        (name, tree, tpe) => q"{ ${makeImplicitArg(name)} => import $name._; $tree }"
       },
 
-      "dslparadise.import =>" -> { (name: TermName, arg: Tree, pt: Type) =>
-        q"{ ${makeArg(name)} => import $name._; $arg }"
+      "dslparadise.import =>" -> Rewriting(true, false) {
+        (name, tree, tpe) => q"{ ${makeArg(name)} => import $name._; $tree }"
       },
 
-      "dslparadise.import" -> { (name: TermName, arg: Tree, pt: Type) =>
-        q"{ import ${pt.typeArgs(1).typeSymbol.companionSymbol}._; $arg }"
+      "dslparadise.import" -> Rewriting(false, false) {
+        (name, tree, tpe) => q"{ import ${tpe.typeArgs(1).typeSymbol.companionSymbol}._; $tree }"
       }
     )
 
     // name for implicit argument
     val argumentName = "dslparadise.argument name"
 
-    override def typedArg(arg: Tree, mode: Mode, newmode: Mode, pt: Type): Tree = {
-      val newarg = pt match {
+    override def typed(tree: Tree, mode: Mode, pt: Type): Tree = {
+      val newtree = pt match {
         case TypeRef(_, sym, args @ Seq(_, _)) =>
           // extract name for implicit argument if given
           val (symbol, name) =
@@ -58,48 +64,41 @@ trait Typers extends ReportingSilencer {
           // find rewriting rule for the expected type
           rewritings get (NameTransformer decode symbol.fullName) map { rewrite =>
 
-            // only rewrite argument if it does not compile in its current form
-            val rewriteArg = silenceReporting {
+            // do not rewrite tree if it does not introduce a new function
+            // argument (i.e., the type remains unchanged) and the expression
+            // compiles in its current form (this prevents infinite recursion)
+            val keepTree = !rewrite.hasArgument && (silenceReporting {
               context inSilentMode {
-                super.typedArg(arg.duplicate, mode, newmode, pt)
-                context.reporter.hasErrors
+                super.typed(tree.duplicate, mode, pt)
+                !context.reporter.hasErrors
               }
-            }
+            })
 
-            if (rewriteArg) {
+            if (!keepTree) {
               // apply rewriting rule
-              val newarg = rewrite(name, arg, pt)
+              val newtree = rewrite(name, tree, pt)
 
-              // to improve compiler-issued error messages, keep the original
-              // (non-rewritten) argument if the new (rewritten) argument
-              // produces compile errors
-              // - that have no corresponding position in the source file
-              //   (i.e. the position is within the code that was introduced
-              //   by the rewriting) or
-              // - whose message is "missing parameter type", which could be
-              //   misleading if the rewriting introduced a function and the
-              //   original code already had function type
-              val keepArg = silenceReporting {
+              // only rewrite tree if the rewriting does not result
+              // in compiler errors
+              val rewriteTree = silenceReporting {
                 context inSilentMode {
-                  super.typedArg(newarg.duplicate, mode, newmode, pt)
-                  context.reporter.errors exists { e =>
-                    e.errPos == NoPosition || e.errMsg == "missing parameter type"
-                  }
+                  super.typed(newtree.duplicate, mode, pt)
+                  !context.reporter.hasErrors
                 }
               }
 
-              if (keepArg) arg else newarg
+              if (rewriteTree) newtree else tree
             }
             else
-              arg
+              tree
 
-          } getOrElse arg
+          } getOrElse tree
 
         case _ =>
-          arg
+          tree
       }
 
-      super.typedArg(newarg, mode, newmode, pt)
+      super.typed(newtree, mode, pt)
     }
   }
 }
