@@ -4,6 +4,7 @@ object Main extends App {
   ImplicitContextPropagation
   ScopePropagation
   StaticScopeInjection
+  ImplicitFunctionTypes
 }
 
 
@@ -38,6 +39,32 @@ object StaticScopeInjection {
 
   f(u + 1)
   f { import Thingy._; u + 1 }
+}
+
+
+object ImplicitFunctionTypes {
+  val a1: Int `implicit =>` Int = 2 * implicitly[Int]
+  def a2(s: String): Int `implicit =>` String = (2 * implicitly[Int]) + s
+
+  val b1: Int `implicit =>` (Double `implicit =>` Double) = implicitly[Int] * implicitly[Double]
+  def b2(s: String): Int `implicit =>` (Double `implicit =>` String) = (implicitly[Int] * implicitly[Double]) + s
+
+  {
+    implicit val i: Int = 2
+    implicit val d: Double = 2
+
+    println(a1)
+    println(a1(2))
+    println(a2("!"))
+    println(a2("!")(2))
+
+    println(b1)
+    println(b1(2))
+    println(b1(2)(2))
+    println(b2("!"))
+    println(b2("!")(2))
+    println(b2("!")(2)(2))
+  }
 }
 
 

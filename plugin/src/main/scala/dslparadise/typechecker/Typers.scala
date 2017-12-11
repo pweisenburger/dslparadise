@@ -3,12 +3,12 @@ package typechecker
 
 import scala.reflect.NameTransformer
 
-trait Typers extends CalleeProcessor with ReportingSilencer {
+trait Typers extends CalleeProcessor with CallProcessor with ReportingSilencer {
   self: Analyzer =>
 
   import global._
 
-  trait ParadiseTyper extends CalleeTyper with Silencer {
+  trait ParadiseTyper extends CalleeTyper with CallTyper with Silencer {
     def makeArg(name: TermName) =
       ValDef(Modifiers(Flag.PARAM), name, TypeTree(), EmptyTree)
 
