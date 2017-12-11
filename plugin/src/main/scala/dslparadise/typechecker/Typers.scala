@@ -2,14 +2,13 @@ package dslparadise
 package typechecker
 
 import scala.reflect.NameTransformer
-import scala.reflect.internal.Mode
 
-trait Typers extends ReportingSilencer {
+trait Typers extends CalleeProcessor with ReportingSilencer {
   self: Analyzer =>
 
   import global._
 
-  trait ParadiseTyper extends Typer with Silencer {
+  trait ParadiseTyper extends CalleeTyper with Silencer {
     def makeArg(name: TermName) =
       ValDef(Modifiers(Flag.PARAM), name, TypeTree(), EmptyTree)
 
@@ -37,68 +36,51 @@ trait Typers extends ReportingSilencer {
       },
 
       "dslparadise.import" -> Rewriting(false, false) {
-        (name, tree, tpe) => q"{ import ${tpe.typeArgs(1).typeSymbol.companionSymbol}._; $tree }"
+        (name, tree, tpe) => q"{ import ${tpe.typeSymbol.companionSymbol}._; $tree }"
       }
     )
 
     // name for implicit argument
     val argumentName = "dslparadise.argument name"
 
-    override def typed(tree: Tree, mode: Mode, pt: Type): Tree = {
-      val newtree = pt match {
-        case TypeRef(_, sym, args @ Seq(_, _)) =>
-          // extract name for implicit argument if given
-          val (symbol, name) =
-            if ((NameTransformer decode sym.fullName) == argumentName)
-              args match {
-                case Seq(
-                    TypeRef(_, sym, Seq(_, _)),
-                    RefinedType(List(definitions.AnyRefTpe), Scope(decl))) =>
-                  (sym, decl.name.toTermName)
-                case _ =>
-                  (NoSymbol, TermName(""))
-              }
-            else
-              (sym, context.unit freshTermName "imparg$")
+    // decompose a potential DSL Paradise type into its rewriting rule,
+    // its argument and result type and its argument name
+    def decomposeRewritingType(tpe: Type): Option[(Rewriting, Type, Type, TermName)] = {
+      // extract name for implicit argument if given or create a fresh one
+      val (symbol, argType, argName) =
+        tpe match {
+          // there is an explicit argument name
+          case TypeRef(_, sym, args @ Seq(_, _))
+              if (NameTransformer decode sym.fullName) == argumentName =>
 
-          // find rewriting rule for the expected type
-          rewritings get (NameTransformer decode symbol.fullName) map { rewrite =>
-
-            // do not rewrite tree if it does not introduce a new function
-            // argument (i.e., the type remains unchanged) and the expression
-            // compiles in its current form (this prevents infinite recursion)
-            val keepTree = !rewrite.hasArgument && (silenceReporting {
-              context inSilentMode {
-                super.typed(tree.duplicate, mode, pt)
-                !context.reporter.hasErrors
-              }
-            })
-
-            if (!keepTree) {
-              // apply rewriting rule
-              val newtree = rewrite(name, tree, pt)
-
-              // only rewrite tree if the rewriting does not result
-              // in compiler errors
-              val rewriteTree = silenceReporting {
-                context inSilentMode {
-                  super.typed(newtree.duplicate, mode, pt)
-                  !context.reporter.hasErrors
-                }
-              }
-
-              if (rewriteTree) newtree else tree
+            args match {
+              case Seq(
+                  tpe @ TypeRef(_, sym, Seq(_, _)),
+                  RefinedType(Seq(definitions.AnyRefTpe), Scope(decl))) =>
+                (sym, tpe, decl.name.toTermName)
+              case _ =>
+                (NoSymbol, NoType, nme.EMPTY)
             }
-            else
-              tree
 
-          } getOrElse tree
+          // there is no explicit argument name
+          case tpe @ TypeRef(_, sym, _) =>
+            (sym, tpe, context.unit freshTermName "imparg$")
 
+          // no type we can interpret
+          case _ =>
+            (NoSymbol, NoType, nme.EMPTY)
+        }
+
+      // find rewriting rule for the given type
+      val rewriting = rewritings get (NameTransformer decode symbol.fullName)
+
+      // extract argument and result types
+      (rewriting, argType) match {
+        case (Some(rewriting), TypeRef(_, _, Seq(argType, resultType))) =>
+          Some((rewriting, argType, resultType, argName))
         case _ =>
-          tree
+          None
       }
-
-      super.typed(newtree, mode, pt)
     }
   }
 }
