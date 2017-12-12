@@ -110,11 +110,14 @@ trait CallProcessor {
       super.adapt(adaptedTree, mode, pt, original)
     }
 
-    override def typed1(tree: Tree, mode: Mode, pt: Type): Tree = tree match {
-      case Apply(Block(_, _), _) =>
-        super.typed1(tree, mode, pt)
+    override def typed1(tree: Tree, mode: Mode, pt: Type): Tree = {
+      val fun = tree match {
+        case Apply(Select(fun, nme.apply) , Seq(_)) => Some(fun)
+        case Apply(fun, Seq(_)) => Some(fun)
+        case _ => None
+      }
 
-      case Apply(fun, _) if adaptToImplicitMethod.nonEmpty =>
+      fun map { fun =>
         // make sure no implicit arguments are resolved for a function
         // which is already applied to an argument
         fun.updateAttachment(HasAppliedArgument)
@@ -122,8 +125,7 @@ trait CallProcessor {
         fun.removeAttachment[HasAppliedArgument.type]
         typedtree
 
-      case _ =>
-        super.typed1(tree, mode, pt)
+      } getOrElse super.typed1(tree, mode, pt)
     }
   }
 }
