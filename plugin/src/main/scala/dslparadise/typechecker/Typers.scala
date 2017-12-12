@@ -72,14 +72,27 @@ trait Typers extends CalleeProcessor with CallProcessor with ReportingSilencer {
         }
 
       // find rewriting rule for the given type
-      val rewriting = rewritings get (NameTransformer decode symbol.fullName)
+      val rewriting =
+        if (symbol ne NoSymbol)
+          rewritings get (NameTransformer decode symbol.fullName)
+        else
+          None
 
       // extract argument and result types
       (rewriting, argType) match {
         case (Some(rewriting), TypeRef(_, _, Seq(argType, resultType))) =>
           Some((rewriting, argType, resultType, argName))
         case _ =>
-          None
+          val reduced = tpe.betaReduce
+          if (tpe ne reduced)
+            decomposeRewritingType(reduced)
+          else {
+            val widened = tpe.widen
+            if (tpe ne widened)
+              decomposeRewritingType(widened)
+            else
+              None
+          }
       }
     }
   }
