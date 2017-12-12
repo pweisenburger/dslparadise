@@ -11,9 +11,12 @@ trait CalleeProcessor {
   trait CalleeTyper extends Typer {
     self: ParadiseTyper =>
 
+    object RewrittenTree
+
     override def typed(tree: Tree, mode: Mode, pt: Type): Tree = {
-      val (newtree, newpt) = decomposeRewritingType(pt) map {
-        case (rewrite, argType, resultType, argName) =>
+      val (newtree, newpt) = decomposeRewritingType(pt) collect {
+        case (rewrite, argType, resultType, argName)
+          if !tree.hasAttachment[RewrittenTree.type] =>
 
         // when rewriting a tree that does not introduce a new function
         // argument, i.e., the type T of the tree remains unchanged,
@@ -21,7 +24,7 @@ trait CalleeProcessor {
         val newpt = if (!rewrite.hasArgument) argType else pt
 
         // apply rewriting rule
-        val newtree = rewrite(argName, tree, resultType)
+        val newtree = rewrite(argName, tree, resultType).updateAttachment(RewrittenTree)
 
         // only rewrite tree if the rewriting does not result
         // in compiler errors
