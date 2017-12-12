@@ -12,40 +12,31 @@ trait CalleeProcessor {
     self: ParadiseTyper =>
 
     override def typed(tree: Tree, mode: Mode, pt: Type): Tree = {
-      val newtree = decomposeRewritingType(pt) map {
-        case (rewrite, _, resultType, argName) =>
+      val (newtree, newpt) = decomposeRewritingType(pt) map {
+        case (rewrite, argType, resultType, argName) =>
 
-        // do not rewrite tree if it does not introduce a new function
-        // argument (i.e., the type remains unchanged) and the expression
-        // compiles in its current form (this prevents infinite recursion)
-        val keepTree = !rewrite.hasArgument && (silenceReporting {
+        // when rewriting a tree that does not introduce a new function
+        // argument, i.e., the type T of the tree remains unchanged,
+        // also rewrite the expected type pt to T to prevent infinite recursion
+        val newpt = if (!rewrite.hasArgument) argType else pt
+
+        // apply rewriting rule
+        val newtree = rewrite(argName, tree, resultType)
+
+        // only rewrite tree if the rewriting does not result
+        // in compiler errors
+        val rewriteTree = silenceReporting {
           context inSilentMode {
-            super.typed(tree.duplicate, mode, pt)
+            super.typed(newtree.duplicate, mode, newpt)
             !context.reporter.hasErrors
           }
-        })
-
-        if (!keepTree) {
-          // apply rewriting rule
-          val newtree = rewrite(argName, tree, resultType)
-
-          // only rewrite tree if the rewriting does not result
-          // in compiler errors
-          val rewriteTree = silenceReporting {
-            context inSilentMode {
-              super.typed(newtree.duplicate, mode, pt)
-              !context.reporter.hasErrors
-            }
-          }
-
-          if (rewriteTree) newtree else tree
         }
-        else
-          tree
 
-      } getOrElse tree
+        (if (rewriteTree) newtree else tree) -> newpt
 
-      super.typed(newtree, mode, pt)
+      } getOrElse tree -> pt
+
+      super.typed(newtree, mode, newpt)
     }
   }
 }
