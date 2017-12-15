@@ -2,6 +2,7 @@ package dslparadise
 package typechecker
 
 import scala.reflect.internal.Mode
+import java.lang.reflect.InvocationTargetException
 
 trait CallProcessor {
   self: Analyzer with Typers =>
@@ -49,9 +50,32 @@ trait CallProcessor {
               tree setType anonymousArgumentMethodType(argType, resultType)
               tree.symbol setInfo tree.tpe
 
+              // only invoke implicit resolution if it does not result
+              // in compiler errors
+              val adaptTree = context inSilentMode {
+                try {
+                  adaptToImplicitMethod.invoke(
+                    this, tree.tpe, tree, Int box mode.bits, pt, original)
+                  !context.reporter.hasErrors
+                }
+                catch {
+                  // Since we faked the tree type, we may run into a situation
+                  // where type-checking tries to treat the tree symbol as a
+                  // method, which it is not, resulting in an exception.
+                  // Assumingly, we should not resolve implicit values in this
+                  // case.
+                  case _: InvocationTargetException => false
+                }
+              }
+
               // invoke existing implicit resolution
-              val adaptedTree = adaptToImplicitMethod.invoke(
-                this, tree.tpe, tree, Int box mode.bits, pt, original).asInstanceOf[Tree]
+              val adaptedTree =
+                if (adaptTree)
+                  adaptToImplicitMethod.invoke(
+                    this, tree.tpe, tree, Int box mode.bits, pt, original)
+                  .asInstanceOf[Tree]
+                else
+                  tree
 
               // restore real type of the tree
               tree setType realTreeType
