@@ -24,8 +24,8 @@ trait CalleeProcessor {
       // We skip processing the block and its last statement (i.e., the return
       // value `x$lzy`) by marking them as rewritten trees. Instead, we attach
       // the expected type to the expression `expr` and process `expr` under the
-      // expected type, potentially inserting a compiler-generated argument at
-      // this point.
+      // expected type, potentially inserting a compiler-generated tree at this
+      // point.
       tree match {
         case DefDef(
               mods, _, Seq(), Seq(), _,
@@ -55,9 +55,11 @@ trait CalleeProcessor {
           pt
       }
 
+      // find rewriting rule to insert compiler-generated trees
       val (newtree, newpt) = decomposeRewritingType(realpt) collect {
         case (rewrite, argType, resultType, argName)
-          if !tree.hasAttachment[RewrittenTree.type] =>
+          if !context.reporter.hasErrors &&
+             !tree.hasAttachment[RewrittenTree.type] =>
 
         // when rewriting a tree that does not introduce a new function
         // argument, i.e., the type T of the tree remains unchanged,

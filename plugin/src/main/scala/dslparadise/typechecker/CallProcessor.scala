@@ -36,7 +36,8 @@ trait CallProcessor {
       val adaptedTree = adaptToImplicitMethod map { adaptToImplicitMethod =>
         tree match {
           case Select(_, _) | Apply(_, _) | Ident(_)
-              if tree.tpe != pt && !tree.hasAttachment[HasAppliedArgument.type] =>
+              if !context.reporter.hasErrors &&
+                 !tree.hasAttachment[HasAppliedArgument.type] =>
 
             decomposeRewritingType(tree.tpe) collect {
               case (rewrite, argType, resultType, _)
@@ -67,6 +68,11 @@ trait CallProcessor {
                   case _: InvocationTargetException => false
                 }
               }
+
+              // make sure the faked tree type is still intact after invoking
+              // implicit resolution
+              tree setType anonymousArgumentMethodType(argType, resultType)
+              tree.symbol setInfo tree.tpe
 
               // invoke existing implicit resolution
               val adaptedTree =
