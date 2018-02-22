@@ -2,6 +2,7 @@ package dslparadise
 package typechecker
 
 import scala.reflect.internal.Mode
+import scala.reflect.internal.Flags
 import java.lang.reflect.InvocationTargetException
 
 trait CallProcessor {
@@ -29,8 +30,36 @@ trait CallProcessor {
 
     object HasAppliedArgument
 
-    def anonymousArgumentMethodType(argType: Type, resultType: Type) =
-      MethodType(List(NoSymbol newSyntheticValueParam argType), resultType)
+    case class OriginalTypeAndSymbol(tpe: Type, symbol: Symbol)
+
+    def anonymousImplicitArgumentMethodType(
+        argType: Type, resultType: Type): Type =
+      MethodType(
+        List(NoSymbol newSyntheticValueParam argType setFlag Flags.IMPLICIT),
+        resultType)
+
+    def anonymousImplicitArgumentMethodInfo(
+        info: Type, argType: Type, resultType: Type): Type =
+      info match {
+        case PolyType(params, result) =>
+          PolyType(
+            params,
+            anonymousImplicitArgumentMethodInfo(result, argType, resultType))
+        case MethodType(params, result) =>
+          MethodType(
+            params,
+            anonymousImplicitArgumentMethodInfo(result, argType, resultType))
+        case _ =>
+          anonymousImplicitArgumentMethodType(argType, resultType)
+      }
+
+    def anonymousImplicitArgumentMethodSymbol(
+        symbol: Symbol, argType: Type, resultType: Type): Symbol =
+      (symbol.owner
+        newMethod TermName("dslparadise$synthetic$method")
+        setFlag Flags.SYNTHETIC
+        setInfo anonymousImplicitArgumentMethodInfo(
+          symbol.info, argType, resultType))
 
     override def adapt(tree: Tree, mode: Mode, pt: Type, original: Tree): Tree = {
       val adaptedTree = adaptToImplicitMethod map { adaptToImplicitMethod =>
@@ -43,20 +72,21 @@ trait CallProcessor {
               case (rewrite, argType, resultType, _)
                 if rewrite.hasImplicitArgument =>
 
-              // temporarily fake tree type to have a method type,
+              // create a temporary tree with a faked method type,
               // so the existing implicit resolution for method arguments works
-              val realTreeType = tree.tpe
-              val realTreeSymbolInfo = tree.symbol.info
-
-              tree setType anonymousArgumentMethodType(argType, resultType)
-              tree.symbol setInfo tree.tpe
+              val treeDuplicate = tree.duplicate
+              treeDuplicate setType anonymousImplicitArgumentMethodType(
+                argType, resultType)
+              treeDuplicate setSymbol anonymousImplicitArgumentMethodSymbol(
+                treeDuplicate.symbol, argType, resultType)
 
               // only invoke implicit resolution if it does not result
               // in compiler errors
               val adaptTree = context inSilentMode {
                 try {
                   adaptToImplicitMethod.invoke(
-                    this, tree.tpe, tree, Int box mode.bits, pt, original)
+                    this, treeDuplicate.tpe, treeDuplicate,
+                    Int box mode.bits, pt, original)
                   !context.reporter.hasErrors
                 }
                 catch {
@@ -69,10 +99,13 @@ trait CallProcessor {
                 }
               }
 
-              // make sure the faked tree type is still intact after invoking
-              // implicit resolution
-              tree setType anonymousArgumentMethodType(argType, resultType)
-              tree.symbol setInfo tree.tpe
+              // temporarily fake tree type to have a method type,
+              // so the existing implicit resolution for method arguments works
+              tree updateAttachment OriginalTypeAndSymbol(tree.tpe, tree.symbol)
+              tree setType anonymousImplicitArgumentMethodType(
+                argType, resultType)
+              tree setSymbol anonymousImplicitArgumentMethodSymbol(
+                tree.symbol, argType, resultType)
 
               // invoke existing implicit resolution
               val adaptedTree =
@@ -84,8 +117,19 @@ trait CallProcessor {
                   tree
 
               // restore real type of the tree
-              tree setType realTreeType
-              tree.symbol setInfo realTreeSymbolInfo
+              object traverser extends Traverser {
+                override def traverse(tree: Tree) = {
+                  tree.attachments.get[OriginalTypeAndSymbol] foreach {
+                      case OriginalTypeAndSymbol(tpe, symbol) =>
+                    tree setType tpe
+                    tree setSymbol symbol
+                    tree.removeAttachment[OriginalTypeAndSymbol]
+                  }
+                  super.traverse(tree)
+                }
+              }
+
+              traverser traverse tree
 
               // since we get a tree with resolved implicit arguments for methods,
               // but we actually have a tree of a function type, we need to manually
@@ -107,7 +151,7 @@ trait CallProcessor {
 
                     val applySymbol = fun.tpe decl nme.apply
                     val apply = (Select(insertApplies(fun), nme.apply)
-                      setType anonymousArgumentMethodType(argType, resultType)
+                      setType anonymousImplicitArgumentMethodType(argType, resultType)
                       setSymbol applySymbol)
 
                     Apply(apply, args) setType resultType setSymbol applySymbol
@@ -141,6 +185,13 @@ trait CallProcessor {
     }
 
     override def typed1(tree: Tree, mode: Mode, pt: Type): Tree = {
+      tree.attachments.get[OriginalTypeAndSymbol] foreach {
+          case OriginalTypeAndSymbol(tpe, symbol) =>
+        tree setType tpe
+        tree setSymbol symbol
+        tree.removeAttachment[OriginalTypeAndSymbol]
+      }
+
       val fun = tree match {
         case Apply(Select(fun, nme.apply) , Seq(_)) => Some(fun)
         case Apply(fun, Seq(_)) => Some(fun)
