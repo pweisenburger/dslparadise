@@ -5,7 +5,7 @@ injection based on a Scala language extension proposal, first introduced by
 [@lihaoyi](http://github.com/lihaoyi) and [@stanch](http://github.com/stanch).
 See [corresponding discussion](http://groups.google.com/forum/#!topic/scala-debate/f4CLmYShX6Q)
 on *scala-debate*. Contextual abstractions for implicit context propagation are
-will be supported by the Dotty compiler as
+supported by the Dotty compiler as
 *[implicit function types](http://scala-lang.org/blog/2016/12/07/implicit-function-types.html)*.
 
 
@@ -126,42 +126,38 @@ withContext[A] { implicit ctx =>
 ```
 
 
-## Get the compiler plugin
+## Getting DSL Paradise
 
-The plugin is currently not available from an online repository in binary form
-as managed dependency. But you can clone the *Git* repository and use *sbt* to
-publish the project locally and use it from other projects on the same machine:
+1. Add the resolver for the DSL Paradise dependencies to your `build.sbt`
 
-```
-sbt publishLocal
-```
+   ```scala
+   resolvers += Resolver.bintrayRepo("stg-tud", "maven")
+   ```
 
-After that, you can use the compiler plugin in an *sbt* project by specifying it
-in the build file:
+2. Enable the DSL Paradise compiler plugin in your `build.sbt`
 
-```scala
-addCompilerPlugin("dslparadise" % "dslparadise" % "0.0.1-SNAPSHOT" cross CrossVersion.full)
-```
+   ```scala
+   addCompilerPlugin("de.tuda.stg" % "dslparadise" % "0.2.0" cross CrossVersion.patch)
+   ```
 
-You also need to make the needed types available. This can be done by adding
-the following dependency to your build file:
+3. Add the library dependencies defining the DSL Paradise types to your `build.sbt`
 
-```scala
-libraryDependencies += "dslparadise" %% "dslparadise-types" % "0.0.1-SNAPSHOT"
-```
+   ```scala
+   libraryDependencies += "de.tuda.stg" %% "dslparadise-types" % "0.2.0"
+   ```
 
-The latter only defines the types used by the plugin as follows:
+   The latter only defines the types used by the plugin as follows:
 
-```scala
-package object dslparadise {
-  type `implicit =>`[-T, +R] = T => R
-  type `implicit import =>`[-T, +R] = T => R
-  type `import =>`[-T, +R] = T => R
-  type `import`[T, I] = T
+   ```scala
+   package object dslparadise {
+     type `implicit =>`[-T, +R] = T => R
+     type `implicit import =>`[-T, +R] = T => R
+     type `import =>`[-T, +R] = T => R
+     type `import`[T, I] = T
 
-  type `argument name`[T <: _ => _, N] = T
-}
-```
+     type `argument name`[T <: _ => _, N] = T
+   }
+   ```
 
 
 ## Use cases
